@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.*;
 
 
 public class Polynomial {
@@ -23,10 +24,12 @@ public class Polynomial {
 	public Polynomial(double[] input) {
 		
 		int count = 0;
-		for (double curr : input) {
-			if (curr != 0) {
-				count++;
-			}
+		for (int i = 0; i < input.length; i++) {
+		    double curr = input[i];
+		    if (curr != 0) {
+		        count++;
+		    }
+		
 		}
 		
 		if (count == 0) {
@@ -65,7 +68,10 @@ public class Polynomial {
 	    int indexThis = 0;
 	    int indexA = 0;
 	    int indexResult = 0;
-
+	    
+	    // Traverse through both polynomials. Add terms with the same exponent or copy over the smaller one
+	    // until one list runs out
+	    
 	    while (indexThis < this.exponents.length && indexA < A.exponents.length) {
 
 	        int expThis = this.exponents[indexThis];
@@ -96,12 +102,16 @@ public class Polynomial {
 	        }
 	    }
 
+	    // Copy any remaining terms from this polynomial into the result
+	    
 	    while (indexThis < this.exponents.length) {
 	        tempCoefficients[indexResult] = this.coefficients[indexThis];
 	        tempExponents[indexResult] = this.exponents[indexThis];
 	        indexResult++;
 	        indexThis++;
 	    }
+	    
+	    // Copy any leftover terms from polynomial A into the result
 
 	    while (indexA < A.coefficients.length) {
 	        tempCoefficients[indexResult] = A.coefficients[indexA];
@@ -143,6 +153,9 @@ public class Polynomial {
 	
 	public Polynomial multiply(Polynomial A) {
 
+		
+		// If either polynomial is empty return the zero polynomial
+
 	    if (this.coefficients.length == 0 || A.coefficients.length == 0) {
 	        return new Polynomial();
 	    }
@@ -150,8 +163,12 @@ public class Polynomial {
 	    int maxTerms = this.coefficients.length * A.coefficients.length;
 	    double[] tempCoeffs = new double[maxTerms];
 	    int[] tempExps = new int[maxTerms];
-	    int termCnt = 0;
+	    int termCount = 0;
 
+	    
+	    // Use this for loop to multiply every term from both polynomials, merge results
+	    // that have the same exponent and drop any that cancel to zero
+	    
 	    for (int i = 0; i < this.coefficients.length; i++) {
 	        for (int j = 0; j < A.coefficients.length; j++) {
 
@@ -159,30 +176,33 @@ public class Polynomial {
 	            if (prodCoeff == 0) continue;
 
 	            int prodExp = this.exponents[i] + A.exponents[j];
-	            int idxFound = findIndex(tempExps, termCnt, prodExp);
+	            int indexFound = findIndex(tempExps, termCount, prodExp);
 
-	            if (idxFound >= 0) {
-	                tempCoeffs[idxFound] += prodCoeff;
+	            if (indexFound >= 0) {
+	                tempCoeffs[indexFound] += prodCoeff;
 	                
-	                if (tempCoeffs[idxFound] == 0) {
+	                if (tempCoeffs[indexFound] == 0) {
 	                	
-	                    for (int jShift = idxFound; jShift < termCnt - 1; jShift++) {
-	                        tempCoeffs[jShift] = tempCoeffs[jShift + 1];
-	                        tempExps[jShift] = tempExps[jShift + 1];
+	                    for (int shiftIndex = indexFound; shiftIndex < termCount - 1; shiftIndex++) {
+	                        tempCoeffs[shiftIndex] = tempCoeffs[shiftIndex + 1];
+	                        tempExps[shiftIndex] = tempExps[shiftIndex + 1];
 	                    }
 	                    
-	                    termCnt--;
+	                    termCount--;
 	                }
 	                
 	            } else {
-	                tempCoeffs[termCnt] = prodCoeff;
-	                tempExps[termCnt] = prodExp;
-	                termCnt++;
+	                tempCoeffs[termCount] = prodCoeff;
+	                tempExps[termCount] = prodExp;
+	                termCount++;
 	            }
 	        }
 	    }
 
-	    for (int i = 1; i < termCnt; i++) {
+	    
+	    // Sort the terms in ascending order wrt exponent
+
+	    for (int i = 1; i < termCount; i++) {
 	        int keyExp = tempExps[i];
 	        double keyCoeff = tempCoeffs[i];
 	        int p = i - 1;
@@ -197,16 +217,22 @@ public class Polynomial {
 	        tempCoeffs[p + 1] = keyCoeff;
 	    }
 
-	    double[] resCoeffs = new double[termCnt];
-	    int[] resExps = new int[termCnt];
+	    double[] resultCoeffs = new double[termCount];
+	    int[] resultExps = new int[termCount];
 	    
-	    for (int i = 0; i < termCnt; i++) {
-	        resCoeffs[i] = tempCoeffs[i];
-	        resExps[i] = tempExps[i];
+	    // Copy from temp arrays to result arrays
+	    
+	    for (int i = 0; i < termCount; i++) {
+	        resultCoeffs[i] = tempCoeffs[i];
+	        resultExps[i] = tempExps[i];
 	    }
 
-	    return new Polynomial(resCoeffs, resExps);
+	    return new Polynomial(resultCoeffs, resultExps);
 	}
+
+	// Helper:
+	// Return the index of targetExp in array[0 .. n-1], or -1 if not found
+
 
 	private int findIndex(int[] array, int len, int targetExp) {
 	    for (int i = 0; i < len; i++) {
@@ -218,10 +244,10 @@ public class Polynomial {
 	
 	// step d
 	
+
 	public Polynomial(File file) throws FileNotFoundException {
 		
 	    Scanner scanner = new Scanner(file);
-	    
 	    if (!scanner.hasNextLine()) {
 	    	
 	        this.coefficients = new double[0];
@@ -230,178 +256,161 @@ public class Polynomial {
 	        return;
 	    }
 	    
-	    String line = scanner.nextLine().replace(" ", "");
+	    String line = scanner.nextLine();
 	    scanner.close();
 	    
-	    if (line.isEmpty()) {
+	    if (line.equals("")) {
 	    	
 	        this.coefficients = new double[0];
 	        this.exponents = new int[0];
 	        return;
 	    }
-	    
-	    line = line.replace("-", "+-");
-	    
-	    if (line.startsWith("+")) { 
-	    	line = line.substring(1); 
-	    }
 
-	    String[] rawTerms = line.split("\\+");
-	    double[] tempCoeffs = new double[rawTerms.length];
-	    int[] tempExps = new int[rawTerms.length];
-	    int termCount = 0;
+	    String[] strings = line.split("(?=[+-])");
+	    Map<Integer, Double> map = new HashMap<>();
 
-	    for (int t = 0; t < rawTerms.length; t++) {
-	    	
-	        String term = rawTerms[t].trim();
-	        if (term.isEmpty()) {
-	        	continue;
-	        }
-
-	        double coeff;
+	    for (int i = 0; i < strings.length; i++) {
+	        String str = strings[i];
+	        
+	        
+	        double coefficient;
 	        int exponent;
-
-	        if (term.contains("x")) {
-	            String[] parts = term.split("x", 2);
+	        
+	        if (str.contains("x")) {
+	        	
+	            String[] parts = str.split("x");
 	            String coeffPart = parts[0];
 	            
-	            if (coeffPart.equals("") || coeffPart.equals("+")) {
-	            	coeff = 1.0;
+	            if (coeffPart.equals("+") || coeffPart.equals("")) {
+	            	coefficient = 1.0;
 	            }
-	            
 	            else if (coeffPart.equals("-")) {
-	            	coeff = -1.0;
+	            	coefficient = -1.0;
 	            }
 	            else {
-	            	coeff = Double.parseDouble(coeffPart);
+	            	coefficient = Double.parseDouble(coeffPart);
 	            }
-
-	            if (parts.length == 2 && !parts[1].isEmpty()) {
+	            if (parts.length > 1 && !parts[1].equals("")) {
 	            	exponent = Integer.parseInt(parts[1]);
 	            }
 	            else {
 	            	exponent = 1;
 	            }
-	            
 	        } else {
-	            coeff = Double.parseDouble(term);
+	            coefficient = Double.parseDouble(str);
 	            exponent = 0;
 	        }
-
-	        int position = findIndex(tempExps, termCount, exponent);
 	        
-	        if (position >= 0) {
-	        	
-	            tempCoeffs[position] += coeff;
-	            if (tempCoeffs[position] == 0) {
-	            	
-	                for (int shift = position; shift < termCount - 1; shift++) {
-	                    tempCoeffs[shift] = tempCoeffs[shift + 1];
-	                    tempExps[shift] = tempExps[shift + 1];
-	                }
-	                
-	                termCount--;
-	            }
-	            
-	        } else {
-	            if (coeff != 0) {
-	                tempCoeffs[termCount] = coeff;
-	                tempExps[termCount] = exponent;
-	                termCount++;
-	            }
+	        double keyExists = 0.0;
+	        if (map.containsKey(exponent)) {
+	            keyExists = map.get(exponent);
+	        }
+	        
+	        double sum = keyExists + coefficient;
+	        if (sum == 0.0) {
+	        	map.remove(exponent);
+	        }
+	        else {
+	        	map.put(exponent, sum);
 	        }
 	    }
 
-	    for (int i = 1; i < termCount; i++) {
-	    	
-	        double keyCoeff = tempCoeffs[i];
-	        int keyExp = tempExps[i];
-	        int index = i - 1;
-	        
-	        while (index >= 0 && tempExps[index] > keyExp) {
-	            tempCoeffs[index + 1] = tempCoeffs[index];
-	            tempExps[index + 1] = tempExps[index];
-	            index--;
-	        }
-	        
-	        tempCoeffs[index + 1] = keyCoeff;
-	        tempExps[index + 1] = keyExp;
-	    }
-
-	    this.coefficients = new double[termCount];
-	    this.exponents = new int[termCount];
-	    
-	    for (int i = 0; i < termCount; i++) {
-	        this.coefficients[i] = tempCoeffs[i];
-	        this.exponents[i] = tempExps[i];
-	    }
-	    
-	}
-	
-	// step E
-	
-	public void saveToFile(String fileName) throws IOException {
-	    FileWriter writer = new FileWriter(fileName);
-	    
-	    if (coefficients.length == 0) {
-	        writer.write("0");
-	        writer.close();
+	    if (map.isEmpty()) {
+	        this.coefficients = new double[0];
+	        this.exponents = new int[0];
 	        return;
 	    }
 
-	    StringBuilder text = new StringBuilder();
+	    List<Integer> sortedExps = new ArrayList<>(map.keySet());
+	    Collections.sort(sortedExps);
+
+	    int n = sortedExps.size();
+	    this.coefficients = new double[n];
+	    this.exponents = new int[n];
 	    
+	    for (int i = 0; i < n; i++) {
+	        int e = sortedExps.get(i);
+	        this.exponents[i] = e;
+	        this.coefficients[i] = map.get(e);
+	    }
+	    
+	}
+
+	
+	// step E
+	
+	public void saveToFile(String givenFile) throws IOException {
+		
+	    FileWriter file = new FileWriter(givenFile); // File being written to
+	    
+	    // If empty, return
+	    
+	    if (coefficients.length == 0) {
+	        file.write("0");
+	        file.close();
+	        return;
+	    }
+	    
+	    String output = "";
 	    for (int i = 0; i < coefficients.length; i++) {
 	    	
 	        double coeff = coefficients[i];
 	        int exp = exponents[i];
-
 	        if (i == 0) {
-	            if (coeff < 0) {
-	            	text.append('-');
+	        	
+	        	// If first term is negative
+	        	
+	            if (coeff < 0) { 
+	                output = output + "-";
 	            }
-	        } else {
+	            
+	          // If subsquent terms are negative
+	            
+	        } else { 
+	        	
 	            if (coeff < 0) {
-	            	text.append('-');
-	            }
-	            else {
-	            	text.append('+');
+	                output = output + "-";
+	                
+	                // If positive
+	                
+	            } else { 
+	                output = output + "+";
 	            }
 	        }
-
+	        
 	        double absCoeff = Math.abs(coeff);
-
 	        if (exp == 0) {
-	            text.append(format(absCoeff));
-
-	        } else {
-	            if (absCoeff != 1.0) {
-	                text.append(format(absCoeff));
+	        	
+	            int intValue = (int) absCoeff;
+	            if (absCoeff == intValue) {
+	                output = output + intValue;
+	                
+	            } else {
+	                output = output + absCoeff;
 	            }
-	            text.append('x');
+	            
+	            // Else a term with x
+	            
+	        } else { 
+	            if (absCoeff != 1.0) {
+	                int intValue = (int) absCoeff;
+	                
+	                if (absCoeff == intValue) {
+	                    output = output + intValue;
+	                } else {
+	                    output = output + absCoeff;
+	                }
+	            }
+	            
+	            output = output + "x"; 
 	            if (exp != 1) {
-	            	text.append(exp);
+	                output = output + exp;
 	            }
 	        }
 	    }
-
-	    writer.write(text.toString());
-	    writer.close();
-
-	}
-
-	private String format(double value) {
-	    int intVal = (int) value;
 	    
-	    if (value == intVal) {
-	    	
-	        return Integer.toString(intVal);
-	    } else {
-	        return Double.toString(value);
-	    }
+	    file.write(output);
+	    file.close();
 	}
 
-
-	
-	
 }
